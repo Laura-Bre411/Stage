@@ -26,15 +26,23 @@ class spectra:
         data3=data[:,10:]
         plt.subplot(1,3,1)
         plt.plot(period,data1[:,1],'-')
-        plt.title('')
+        plt.xlabel('Fréqunces')
+        plt.ylabel('Déplacement maximal (en mètres)')  #À haute fréquence, cette courbe tend vers 0 car
+        #une structure très rigide ne se déforme pas par rapport à son support
+        plt.title('Spectre de déplacement relatif')
         
         plt.subplot(1,3,2)
         plt.plot(period,data2[:,1],'-')
-        plt.title('')
+        plt.xlabel('Fréqunces')
+        plt.ylabel("$\omega S_{rox}$")    #(liée à l'énergie cinétique maximale emmagasinée)
+        plt.title('Spectre de pseudo-vitesse relative')
         
         plt.subplot(1,3,3)
         plt.plot(period,data3[:,1],'-')
-        plt.title('')
+        plt.xlabel('Fréqunces')
+        plt.ylabel('$S_{rox_point}') #À haute fréquence, elle tend vers l'accélération maximale du sol
+        #($A_{max}$) car la masse suit exactement le mouvement de la base
+        plt.title('Spectre de pseudo-accélération absolue')
         
         plt.show()
 
@@ -116,4 +124,5 @@ a.figure()
 #print(a.spectradata())
 #print(a.spectradata())
 #k=a.spectradata()       
+
 #print(k.shape()) 

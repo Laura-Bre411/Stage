@@ -1,0 +1,201 @@
+Option Explicit
+Option Base 1
+
+Private Type SRO_type
+    D() As Double
+    V() As Double
+    A() As Double
+End Type
+
+
+Sub Run_SRO() 
+'Le chef d'orchestre. Il lit les données d'entrée dans les feuilles Excel (fréquences, amortissement, pas de temps, signal sismique), lance le calcul, et écrit les résultats.
+'
+' Macro1 Macro
+'
+Application.ScreenUpdating = False
+Application.DisplayStatusBar = False
+Application.Calculation = xlCalculationManual
+Application.EnableEvents = False
+ActiveSheet.DisplayPageBreaks = False
+
+'----------------------------------------
+Dim MyWorkbook As Workbook
+Set MyWorkbook = ActiveWorkbook
+
+
+'Recuperation des donnees dans la feuille "Calculs"--------------------
+Dim WS_Calculs As Worksheet
+Set WS_Calculs = MyWorkbook.Worksheets("Calculs")
+
+Dim Nf As Integer, NB_val_T As Integer, L_Start As Integer, NB_accel As Integer, Norme As Integer
+Dim amort As Double, dt As Double
+
+NB_val_T = WS_Calculs.Range("D10")       'Nombre de point d'echantillonage
+dt = WS_Calculs.Range("D11")             'Pas de temps des acceleros
+
+NB_accel = WS_Calculs.Range("D19")      'Nombre d'accelero
+amort = WS_Calculs.Range("D20")         'Amortissement
+Norme = WS_Calculs.Range("D21")         'Norme en sortie (habituellement sortie en g)
+
+Nf = WS_Calculs.Range("D22")            'Nombre de frequence a calculer
+
+L_Start = 3                             'Ligne de debut
+
+'Definition des feuilles IN/OUT--------------------------------------
+Dim WS_SRO As Worksheet
+Set WS_SRO = MyWorkbook.Worksheets("SRO")
+
+Dim WS_A As Worksheet
+Set WS_A = MyWorkbook.Worksheets("A")
+
+'Import des acceleros dans un tableau----------------------------------
+Dim Acc() As Double
+ReDim Acc(NB_val_T, NB_accel)
+
+Dim i As Integer, j As Integer
+For i = 1 To NB_val_T
+    For j = 1 To NB_accel
+        Acc(i, j) = WS_A.Cells((L_Start + i - 1), 1 + j)
+    Next j
+Next i
+
+'Import des frequences dans un tableau----------------------------------
+Dim SpectreF() As Double
+ReDim SpectreF(Nf)
+
+For i = 1 To Nf
+    SpectreF(i) = Round(WS_SRO.Range("A" & (L_Start + i - 1)), 2)
+Next i
+
+
+'Calculs des spectres de reponse----------------------------------------
+Dim SRO As SRO_type
+
+SRO = (SpectreF, Acc, dt, amort)
+'SRO = SRO_FULL(SpectreF, Acc, dt, amort)
+
+'Export des resultats----------------------------------------
+For i = 1 To Nf
+    For j = 1 To NB_accel
+        WS_SRO.Cells((L_Start + i - 1), 1 + j) = Round(SRO.A(i, j) / Norme, 4)
+    Next j
+Next i
+
+'Calcul-----------------------------------------------------------------------------------
+    Calculate
+
+Application.ScreenUpdating = True
+Application.DisplayStatusBar = True
+'Application.Calculation = xlAutomatic
+Application.EnableEvents = True
+End Sub
+Private Function (F() As Double, Accel() As Double, dt As Double, amort As Double) As SRO_type
+
+'Parametre
+Dim Nf_ As Integer, NB_val_T_ As Integer, NB_accel_ As Integer, Pi As Double, amortR As Double
+
+Nf_ = UBound(F, 1)                  'Nombre de frequence a calculer
+NB_val_T_ = UBound(Accel, 1)        'Nombre de point d'echantillonage
+NB_accel_ = UBound(Accel, 2)        'Nombre d'accelero
+
+amortR = Sqr(1 - amort * amort)     'Amortissement reduit
+Pi = 4 * Atn(1)                     'Pi
+
+'Redim des tableaux de sortie
+ReDim .D(Nf_, NB_accel_)
+ReDim .V(Nf_, NB_accel_)
+ReDim .A(Nf_, NB_accel_)
+
+'----------------------------------------
+Dim omega As Double, omega_d As Double, c1 As Double, c2 As Double, Dmax_f As Double
+
+Dim Q1 As Variant
+Dim Q2 As Variant
+Dim Q(2, 1) As Double
+Dim Alpha(2, 1) As Double
+Dim A(2, 2) As Double
+Dim b(2, 2) As Double
+
+Dim an As Integer, fn As Integer, tn As Integer
+For fn = 1 To Nf_
+    omega = 2 * Pi * F(fn)
+    omega_d = omega * amortR
+    
+    A(1, 1) = Exp(-amort * omega * dt) * (amort / amortR * Sin(omega_d * dt) + Cos(omega_d * dt))
+    A(1, 2) = Exp(-amort * omega * dt) / omega_d * Sin(omega_d * dt)
+    A(2, 1) = -omega / amortR * Exp(-amort * omega * dt) * Sin(omega_d * dt)
+    A(2, 2) = Exp(-amort * omega * dt) * (Cos(omega_d * dt) - amort / amortR * Sin(omega_d * dt))
+    
+    c1 = (2 * amort * amort - 1) / (omega * omega * dt)
+    c2 = (2 * amort) / (omega * omega * omega * dt)
+    
+    b(1, 1) = Exp(-amort * omega * dt) * ((c1 + amort / omega) * Sin(omega_d * dt) / omega_d + (c2 + 1 / (omega * omega)) * Cos(omega_d * dt)) - c2
+    b(1, 2) = -Exp(-amort * omega * dt) * ((c1) * Sin(omega_d * dt) / omega_d + (c2) * Cos(omega_d * dt)) - 1 / (omega * omega) + c2
+    b(2, 1) = Exp(-amort * omega * dt) * ((c1 + amort / omega) * (Cos(omega_d * dt) - amort / amortR * Sin(omega_d * dt)) - (c2 + 1 / (omega * omega)) * (omega_d * Sin(omega_d * dt) + amort * omega * Cos(omega_d * dt))) + 1 / (omega * omega * dt)
+    b(2, 2) = -Exp(-amort * omega * dt) * ((c1) * (Cos(omega_d * dt) - amort / amortR * Sin(omega_d * dt)) - (c2) * (omega_d * Sin(omega_d * dt) + amort * omega * Cos(omega_d * dt))) - 1 / (omega * omega * dt)
+      
+    For an = 1 To NB_accel_
+        Dmax_f = 0
+        Q(1, 1) = 0
+        Q(2, 1) = 0
+        For tn = 2 To NB_val_T_
+            Alpha(1, 1) = Accel(tn - 1, an)
+            Alpha(2, 1) = Accel(tn, an)
+            Q1 = Application.MMult(A, Q)
+            Q2 = Application.MMult(b, Alpha)
+            Q(1, 1) = Q1(1, 1) + Q2(1, 1)
+            Q(2, 1) = Q1(2, 1) + Q2(2, 1)
+            If Dmax_f < Abs(Q(1, 1)) Then Dmax_f = Abs(Q(1, 1))
+        Next tn
+
+        .D(fn, an) = Dmax_f
+        .V(fn, an) = omega * Dmax_f
+        .A(fn, an) = omega * omega * Dmax_f
+    Next an
+Next fn
+
+End Function
+Private Function SRO_FULL(F() As Double, Accel() As Double, dt As Double, amort As Double) As SRO_type
+'Parametre
+Dim Nf_ As Integer, NB_val_T_ As Integer, NB_accel_ As Integer, Pi As Double, amortR As Double
+
+Nf_ = UBound(F, 1)                  'Nombre de frequence a calculer
+NB_val_T_ = UBound(Accel, 1)        'Nombre de point d'echantillonage
+NB_accel_ = UBound(Accel, 2)        'Nombre d'accelero
+
+amortR = Sqr(1 - amort * amort)     'Amortissement reduit
+Pi = 4 * Atn(1)                     'Pi
+
+'Redim des tableaux de sortie
+ReDim SRO_FULL.D(Nf_, NB_accel_)
+ReDim SRO_FULL.V(Nf_, NB_accel_)
+ReDim SRO_FULL.A(Nf_, NB_accel_)
+
+'----------------------------------------
+Dim omega As Double, Dmax_f As Double, D_f As Double, Ai As Double, t As Double, tau As Double
+
+Dim an As Integer, fn As Integer, tn As Integer, i As Integer
+For an = 1 To NB_accel_
+    For fn = 1 To Nf_
+        omega = 2 * Pi * F(fn)
+        Dmax_f = 0
+        For tn = 2 To NB_val_T_
+            t = tn * dt
+            D_f = 0
+            For i = 1 To tn
+                Ai = Accel(i, an)
+                tau = i * dt
+                D_f = D_f + (-dt / (omega * amortR)) * Ai * Exp(-amort * omega * (t - tau)) * Sin(omega * amortR * (t - tau))
+            Next i
+            Dmax_f = Application.Max(Dmax_f, Abs(D_f))
+        Next tn
+        
+        SRO_FULL.D(fn, an) = Dmax_f
+        SRO_FULL.V(fn, an) = omega * Dmax_f
+        SRO_FULL.A(fn, an) = omega * omega * Dmax_f
+    Next fn
+Next an
+
+End Function
+

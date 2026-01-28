@@ -1,222 +1,109 @@
-#%%
-"""
-Méthodes de calcul de l'intégrae de Duhamel
-pour la production d'un spectre de réponse d'un oscillateur harmonique 
-
-Auteur : Laura Brémont (stagiaire)
-Dernière version : 26/01/26
-"""
-
 import numpy as np
 import matplotlib.pyplot as plt
-import sympy as sym # type: ignore
-import scipy.integrate as integrate
-import scipy.linalg as alg
 from datetime import datetime
 
-
-### Entrée : Rampe
-"""
-
-fig = plt.figure()
-axes = fig.add_axes([0.1,0.1,2,1])
-axes.plot(t,p)
-
-axes.set_xlabel('t (sec)')
-axes.set_ylabel('Force (N)')
-axes.set_title('Entrée en rampe ')
-axes.set_xlim([0,t1])
-axes.set_ylim([0,P0])
-plt.grid()
-plt.show()"""
-
-
-
-""""---------------------------SOLUTION ANALYTIQUE-----------------------------"""
-sym.init_printing() # Ecrire automatiquement des expressions bien formatées
-
-##Import de symboles depuis la bibliothèque Sympy
-m = sym.Symbol('m')
-wf = sym.Symbol('wf')
-wn = sym.Symbol('wn')
-F0 = sym.Symbol('F0')
-t1 = sym.Symbol('t1')
-tau = sym.Symbol('tau')
-t = sym.Symbol('t')
-
-##Intégrande de l'intégrale de Duhamel
-
-#Cas s'une rampe :
-"""
-f = tau * sym.sin(wf*t-wf*tau)
-"""
-"""
-#Cas d'un sinus (harmonique) :
-f = sym.sin(wn*tau)*sym.sin(wf*t-wf*tau)
-
-
-defint = sym.integrate(f, (tau, 0,t)) #tau est la variable d'intégration
-
-print("SymPy a généré cette expression pour l'intégrale définie:")
-
-sym.simplify(defint) #factorise, réduit, bref simplifie l'expression
-
-"""
-
-""""-----------------------AFFICHAGE (application numérique)------------------------"""
-from matplotlib import rcParams
-rcParams['font.family'] = 'serif'
-rcParams['font.size'] = 14
-
-#On redéfinit les constantes pour l'affichage
-
+# --- Paramètres Globaux ---
 dt = 0.1
-dtho = dt
-DECOUPAGE = np.arange(0, 5, 0.1)
-TIME = DECOUPAGE*dt
+t_fin = 5.0
+TIME = np.arange(0, t_fin, dt)
 
-F0 = 1000       #N
-wf = 1          #sec
-delT = 0.1      #sec
-m = 20          #kg
+# Paramètres de l'oscillateur
+m = 20          # kg
+xi = 0.05       # amortissement
+f_Force = 15    # Hz
+wf = 1.0        # pulsation forcée (rad/s)
+wn = 2*np.pi*f_Force # pulsation propre
+wd = wn*np.sqrt(1-xi**2) # pulsation amortie
+F0 = 100        # Amplitude
 
-# Entrée en sinus
-f_Force = 15                 #Frequence forcée : Hz
-wf = 2*np.pi*f_Force         #Pulsation forcée : rads/s
-F0 = 100                       #Amplitude : N
-force = F0*np.sin(wf*TIME)
+# Définition de la force (Entrée)
+# Cas 1 : Sinus
+# force = F0 * np.sin(wf * TIME)
+# Cas 2 : Dirac (Impulsion unitaire à t=0 pour tester)
+F = np.zeros_like(TIME)
+F[0] = 1.0 / dt  # Approximativement 1/dt pour que l'intégrale vaille 1
 
-#Entrée en dirac
-F = np.concatenate(( np.array([1]), np.array([0]*(len(TIME) - 1)) ))
+# --- Fonctions Corrigées ---
 
-xi = 0.05            #taux d'amortissement de l'oscillateur
-wn = 2*np.pi*wf      #pulsation propre associée à T : rads/s
-wd = wn*np.sqrt(1-xi**2)    #pulsation amortie : rads/s
-k = m*wn**2          #raideur déduite a partir de T et m connues : kg.m/s**2
-    
-
-
-liste_périodes = [3,4,5] #périodes d'entrées harmoniques à tester 
-
-
-plt.figure()
-
-"""
-for pr in liste_périodes:
-    wf2 = pr*wf
-    xi = 0.05         #taux d'amortissement de l'oscillateur
-    wn = 2*np.pi*wf2    #pulsation propre associée à T : rads/s
-    wd = wn*np.sqrt(1-xi**2)    #pulsation amortie : rads/s
-    k = m*wn**2       #raideur déduite a partir de T et m connues : kg.m/s**2
-    
-    
-    #Si entrée en rampe :
-    
-    TIME = np.arange(0, t1+delT, delT) #échelle des temps en abscisses
-    u = (F0/k)*(TIME -(np.sin(wn*TIME))) #avec la constante prise en compte
-    plt.plot(TIME,u/(F0/k), label=f"T = {pr}t1")
-    
-    
-    #Si entrée en sinus (harmonique) :
-    
-    force = F0*np.sin(wf2*TIME)   #Force imposée : N
-    
-    #comme wn>0 et wf>0 :
-    u = (F0/m/wd)*(wf2*np.sin(wn*TIME) - wn*np.sin(wn*TIME))/(wf2**2 - wn**2) #avec la constante prise en compte
-    plt.plot(TIME, u, label=f"wn = {pr}wf")
-    
-"""
-def main():
-    #Comparaison des solutions numériques :
-    """ 
-    start = datetime.now()
-    U = [ Trapeze_numpy(TIME[i], F) for i in range(len(TIME)) ]
-    end = datetime.now()
-    plt.plot(TIME,U, label=f"Trapèzes numpy : tmp exe = {end-start}sec")
+def Integrande(F_val, t, tau):
     """
-    
-    start = datetime.now()
-    U = Trapeze_manuel(TIME, F)
-    end = datetime.now()
-    plt.plot(TIME,U, label=f"Trapèzes manuels : tmp exe = {end-start}sec")
+    Fonction sous l'intégrale de Duhamel : h(t-tau) * F(tau)
+    h(t) = (1/m*wd) * exp(-xi*wn*t) * sin(wd*t)
+    """
+    if t < tau:
+        return 0.0
+    return (1/(m*wd)) * np.exp(-xi*wn*(t - tau)) * F_val * np.sin(wd*(t - tau))
 
-    start = datetime.now()
-    U = [ Rectangle_numpy(TIME[i], F) for i in range(len(TIME)) ]
-    end = datetime.now()
-    plt.plot(TIME, U, label=f"Rectangles numpy : tmp exe = {end-start}sec")
+def Trapeze_numpy(t, F_array, time_array):
+    """Méthode des trapèzes utilisant numpy.trapz"""
+    # On intègre de tau=0 à tau=t
+    indices = np.where(time_array <= t)[0]
+    if len(indices) < 2:
+        return 0.0
+    
+    # On calcule l'intégrande pour tous les tau concernés
+    y_vals = [Integrande(F_array[j], t, time_array[j]) for j in indices]
+    
+    # Intégration
+    return np.trapz(y_vals, x=time_array[indices])
 
-    plt.xlabel('t en sec')         
-    plt.ylabel('Déplacement')
-    plt.title("Réponse d'un oscillateur harmonique à F")
-    plt.legend(loc='best')
-    plt.xlim([0, TIME[-1]])
-    plt.grid()
-    plt.show()
-
-""""---------------------------SOLUTIONS NUMERIQUES-----------------------------"""
-
-def Integrande(F, t, j):
-    return (1/m/wd)*np.e*(xi*wn*t)*F[j]*np.sin(wd*(t - j*dtho))
-
-def Trapeze_numpy(t, F):
-    """Méthode des trapèzes avec la bibliothèque Numpy"""
-    
-    return np.trapezoid(lambda j : Integrande(F, t, int(j)), x=np.arange(1, int(t/dt), 1) )
-
-    
-def Quad_scipy(t, F):
-    """Méthode d'intégration de la bibliothèque Scipy"""
-    
-    return integrate.quad(Integrande, dx=1, args=(F, t))
-    
-    
-def Rectangle_numpy(t, F):    
-    """Méthode des rectangles avec la bibliothèque Numpy ; 
-    t est un multiple de dt innférieur à len(TIME)*dt = TIME[-1]"""
-    
-    THO = np.concatenate(( np.array([dtho]*(int(t/dt))), np.array([0]*(len(TIME) - int(t/dt))) ))
-    
-    INTEGRANDE = np.array([Integrande(F, t, j) for j in range(len(TIME))])
-    print(INTEGRANDE)
-    return np.dot(INTEGRANDE, THO)
-    
-    
-def Trapeze_manuel(TIME, F):
-    """Méthode des trapèzes pour l'intégration discrète"""
-    #Initialise les déplacements à 0
+def Trapeze_manuel_optimise(TIME, F):
+    """
+    Méthode des trapèzes optimisée (O(N)).
+    On utilise la décomposition trigonométrique pour éviter de tout recalculer.
+    """
     U = np.zeros(len(TIME))
     
-    #Dictionnaires pour éviter de calculer deux fois chaque valeur de l'intégrande
-    Y_A = {0: np.e**(xi*wn*TIME[0]) * F[0] * np.cos(wd*TIME[0])}
+    # Pré-calcul vectoriel des termes A et B (éviter les boucles lentes)
+    # A(tau) = exp(xi*wn*tau) * F(tau) * cos(wd*tau)
+    # B(tau) = exp(xi*wn*tau) * F(tau) * sin(wd*tau)
+    # Note: On utilise ici l'exponentielle positive pour compenser celle du terme final
     
-    Y_B = {0: np.e**(xi*wn*TIME[0]) * F[0] * np.sin(wd*TIME[0])}
+    exp_term = np.exp(xi * wn * TIME)
+    Y_A = exp_term * F * np.cos(wd * TIME)
+    Y_B = exp_term * F * np.sin(wd * TIME)
     
-    #Initialise pour la somme cumulative à chq étape "+dt"
-    ACum_i=0
-    BCum_i=0
-
+    ACum = 0.0
+    BCum = 0.0
+    
+    # Boucle unique cumulative
     for i in range(1, len(TIME)):
-            
-        if i>0:
-
-            #Calcul de A à t = i*dt
-            
-            Y_A[i] = np.e**(xi*wn*TIME[i]) * F[i] * np.cos(wd*TIME[i])
+        # Aire Trapèze = 0.5 * dt * (y[i] + y[i-1])
+        ACum += 0.5 * dt * (Y_A[i] + Y_A[i-1])
+        BCum += 0.5 * dt * (Y_B[i] + Y_B[i-1])
         
-            ACum_i += 0.5*delT*(Y_A[i]+Y_A[i-1])    #Aire cumulée entre 0 et t
-            A_i = (1/(m*wd))*ACum_i                 #Valeur de A à t
-
-            #Calcul de B à t = i*dt
-            Y_B[i] = np.e**(xi*wn*TIME[i]) * F[i] * np.sin(wd*TIME[i])
-            
-            BCum_i += 0.5*delT*(Y_B[i]+Y_B[i-1])    #Aire cumulée entre 0 et t
-            B_i = (1/(m*wd))*BCum_i                 #Valeur de B à t
-
-            #Calcule le déplacement à t = i*dt
-            U[i] = A_i*np.e**(-xi*wn*TIME[i])*np.sin(wd*TIME[i]) - B_i * np.e**(-xi*wn*TIME[i])*np.cos(wd*TIME[i])
-
+        # Reconstruction de la solution à l'instant t
+        term_common = (1/(m*wd)) * np.exp(-xi * wn * TIME[i])
+        U[i] = term_common * (ACum * np.sin(wd * TIME[i]) - BCum * np.cos(wd * TIME[i]))
+        
     return U
 
+def main():
+    print("Calcul en cours...")
+    
+    # 1. Méthode Numpy (Lente car recalculée à chaque pas)
+    start = datetime.now()
+    # On utilise une liste compréhension pour calculer U à chaque instant t
+    U_numpy = [Trapeze_numpy(t, F, TIME) for t in TIME]
+    end = datetime.now()
+    print(f"Temps exécution Numpy (trapz) : {end-start}")
+    
+    # 2. Méthode Manuelle Optimisée (Rapide)
+    start = datetime.now()
+    U_manuel = Trapeze_manuel_optimise(TIME, F)
+    end = datetime.now()
+    print(f"Temps exécution Manuel Optimisé : {end-start}")
 
+    # Affichage
+    plt.figure(figsize=(10, 6))
+    plt.plot(TIME, U_numpy, 'o', label="Numpy trapz", markersize=2)
+    plt.plot(TIME, U_manuel, label="Manuel Optimisé")
+    plt.xlabel('Temps (s)')
+    plt.ylabel('Déplacement')
+    plt.title("Réponse impulsionnelle (Duhamel)")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
-main()
+if __name__ == "__main__":
+    main()

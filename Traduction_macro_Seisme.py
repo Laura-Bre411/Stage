@@ -1,25 +1,40 @@
+"""Composition du programme :
+-   Fonction sro_nigam
+-   Partie lecture d'Excel, appel, et écriture des résultats
+
+Auteur : Laura Brémont
+Dernière version : 29/01/26
+"""
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import rcParams
+rcParams['font.family'] = 'serif'
+rcParams['font.size'] = 14
+
+###Fréquences de l'O.H à tester
+frequencies = np.logspace(-1, 1.5, num=150)
+
+
+
 
 def sro_nigam(frequencies, accelerogram, dt, damping):
     """
     Calcule le Spectre de Réponse d'Oscillateur (SRO) selon la méthode de NIGAM & JENNINGS.
     
-    Paramètres:
-    -----------
-    frequencies : array_like
-        Tableau des fréquences propres (Hz) pour lesquelles calculer le spectre.
-    accelerogram : array_like
-        Signal d'accélération (accélérogramme).
+    Entrées :
+    frequencies : array
+        Tableau des fréquences propres (Hz) pour lesquelles calculer le spectre
+    accelerogram : array
+        Signal d'accélération (accélérogramme)
     dt : float
-        Pas de temps du signal (s).
+        Pas de temps du signal (s)
     damping : float
-        Amortissement réduit (xi), ex: 0.05 pour 5%.
+        Amortissement réduit xi
         
-    Retourne:
-    ---------
-    results : dict
+
+    Sortie : dict
         Dictionnaire contenant :
         - 'D': Spectre de déplacement relatif
         - 'V': Spectre de pseudo-vitesse
@@ -60,7 +75,7 @@ def sro_nigam(frequencies, accelerogram, dt, damping):
         a21 = -omega / xi_sq * exp_val * sin_val
         a22 = exp_val * (cos_val - xi / xi_sq * sin_val)
         
-        # Matrice A (Transition d'état homogène)
+        # Matrice A
         A_mat = np.array([[a11, a12],
                           [a21, a22]])
         
@@ -111,46 +126,88 @@ def sro_nigam(frequencies, accelerogram, dt, damping):
         "Pseudo_Acceleration": spectre_a
     }
 
-# --- Exemple d'utilisation (Similaire au Main "Run_SRO") ---
+
+def affichage(temps, accel, resultats):
+    """Entrées : 
+        -   résulats de la méthode précédente
+        -   échelle des temps et entrée utilisées
+    """
+    plt.subplot(2,2,1)
+    plt.grid(True, which="both", ls="-")
+    plt.plot(temps, accel)
+    plt.xlabel("Temps (s)")
+    plt.ylabel('Accélération (m/s² ou g)')
+    plt.title('Perturbation en accélération')
+    
+    plt.subplot(2,2,2)
+    plt.grid(True, which="both", ls="-")
+    plt.loglog(resultats['Frequences'], resultats['Deplacement'],color='purple', label='Amortissement 5%')
+    plt.xlabel("Fréquence de l'O.H (Hz)")
+    plt.ylabel('Déplacement (m)')
+    plt.title('Spectre de déplacement relatif')
+    plt.legend(loc='best')
+        
+    plt.subplot(2,2,3)
+    plt.grid(True, which="both", ls="-")
+    plt.loglog(resultats['Frequences'], resultats['Pseudo_Vitesse'],color='green', label='Amortissement 5%')
+    plt.xlabel("Fréquence de l'O.H (Hz)")
+    plt.ylabel('Pseudo-vitesse (m/s)')
+    plt.title('Spectre de pseudo-vitesse')
+    plt.legend(loc='best')
+    
+    plt.subplot(2,2,4)
+    plt.grid(True, which="both", ls="-")
+    plt.loglog(resultats['Frequences'], resultats['Pseudo_Acceleration'],color='coral', label='Amortissement 5%')
+    plt.xlabel("Fréquence de l'O.H (Hz)")
+    plt.ylabel('Pseudo-accélération (m/s² ou g)')
+    plt.title('Spectre de pseudo-accélération')
+    plt.legend(loc='best')
+    
+    plt.tight_layout()
+    plt.show()
+    
+    
+# --- Exemple d'utilisation ---
 
 if __name__ == "__main__":
-    # 1. Création de données bidons (ex: sinus amorti) pour tester
+
     dt = 0.01
     temps = np.arange(0, 10, dt)
-    accel = 1.0 * np.sin(2 * np.pi * 2.0 * temps) * np.exp(-0.5 * temps) # Accel en m/s² (ou g)
+    # Test avec un sinus dégradé
+    accel = 1.0 * np.sin(2 * np.pi * 2.0 * temps) * np.exp(-5 * temps) * temps**5 #(m/s² ou g)
     
-    # 2. Paramètres de calcul
+    #accel =  1.0 * np.sin(2.0 * temps + 3.0)
+    
+    # Paramètres de calcul
     amortissement = 0.05  # 5%
     frequences = np.logspace(np.log10(0.1), np.log10(50), 100) # De 0.1 à 50 Hz
     
-    # 3. Appel de la fonction
+    # Appel de la fonction
     print("Calcul en cours...")
     resultats = sro_nigam(frequences, accel, dt, amortissement)
     
-    # 4. Affichage ou Export
+    # Affichage puis export
     print("Calcul terminé.")
     print(f"SRO Max (Accélération): {np.max(resultats['Pseudo_Acceleration']):.4f}")
     
-    # Tracé simple (optionnel)
-    plt.figure(figsize=(10, 6))
-    plt.loglog(resultats['Frequences'], resultats['Pseudo_Acceleration'], label='Amortissement 5%')
-    plt.xlabel('Fréquence (Hz)')
-    plt.ylabel('Pseudo-Accélération')
-    plt.title('Spectre de Réponse (Méthode Nigam & Jennings)')
-    plt.grid(True, which="both", ls="-")
-    plt.legend()
-    plt.show()
-# Lire le fichier Excel
-df_calculs = pd.read_excel("VotreFichier.xlsm", sheet_name="Calculs", header=None)
+    affichage(temps, accel, resultats)
+    
+
+    
+# Lire le fichier Excel (feuille Calculs)
+df_calculs = pd.read_excel("Spectre.xlsm", sheet_name="Calculs", header=None)
 dt = df_calculs.iloc[10, 3] # Cellule D11 (index 0 donc ligne 10, col 3)
 amort = df_calculs.iloc[19, 3] # Cellule D20
 
 # Lire l'accélérogramme (feuille A)
-df_acc = pd.read_excel("VotreFichier.xlsm", sheet_name="A")
-accel_data = df_acc.iloc[:, 1].values # Colonne 2
+df_acc = pd.read_excel("Spectre.xlsm", sheet_name="A")
+accel_data = df_acc.iloc[2:, 1].values # Colonne 2
+temps = df_acc.iloc[2:, 0].values # Colonne 1, sans f=0
 
 # Lancer le calcul
 res = sro_nigam(frequencies, accel_data, dt, amort)
 
+affichage(temps, accel_data, res)
+
 # Sauvegarder
-pd.DataFrame(res).to_excel("Resultats_SRO.xlsx")
+pd.DataFrame(res).to_excel("Spectre.xlsm", sheet_name="RES")

@@ -24,25 +24,33 @@ class spectra:
         data1=data[:,1:3]
         data2=data[:,5:8]
         data3=data[:,10:]
-        plt.subplot(1,3,1)
-        plt.loglog(period, data1[:,1],'-')
+        """
+        plt.subplot(2,2,1)
         plt.grid(True, which="both", ls="-")
-        plt.xlabel('Fréqunces (Hz)')
+        plt.plot(temps, accel)
+        plt.xlabel("Temps (s)")
+        plt.ylabel('Accélération (m/s² ou g)')
+        plt.title('Perturbation en accélération')
+        """
+        plt.subplot(1,3,1)
+        plt.loglog(period, data1[:,1],'-',color='purple')
+        plt.grid(True, which="both", ls="-")
+        plt.xlabel('Fréqunces')
         plt.ylabel('Déplacement maximal (en mètres)')  #À haute fréquence, cette courbe tend vers 0 car
         #une structure très rigide ne se déforme pas par rapport à son support
         plt.title('Spectre de déplacement relatif')
         
         plt.subplot(1,3,2)
-        plt.loglog(period, data2[:,1],'-')
+        plt.loglog(period, data2[:,1],'-',color='green')
         plt.grid(True, which="both", ls="-")
-        plt.xlabel('Fréqunces (Hz)')
+        plt.xlabel('Fréqunces')
         plt.ylabel("$\omega S_{rox}$")    #(liée à l'énergie cinétique maximale emmagasinée)
         plt.title('Spectre de pseudo-vitesse relative')
         
         plt.subplot(1,3,3)
-        plt.loglog(period, data3[:,1],'-')
+        plt.loglog(period, data3[:,1],'-',color='coral')
         plt.grid(True, which="both", ls="-")
-        plt.xlabel('Fréqunces (Hz)')
+        plt.xlabel('Fréqunces')
         plt.ylabel('$S_{rox_{point}}$') #À haute fréquence, elle tend vers l'accélération maximale du sol
         #($A_{max}$) car la masse suit exactement le mouvement de la base
         plt.title('Spectre de pseudo-accélération absolue')

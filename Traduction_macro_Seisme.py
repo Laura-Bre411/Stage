@@ -7,16 +7,18 @@ Dernière version : 29/01/26
 """
 
 import pandas as pd
+from openpyxl import load_workbook
+# Pour conserver les macros, utiliser openpyxl ou xlwings 
+# uniquement, sans pandas pour écrire les données directement
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 rcParams['font.family'] = 'serif'
 rcParams['font.size'] = 14
 
+
 ###Fréquences de l'O.H à tester
 frequencies = np.logspace(-1, 1.5, num=150)
-
-
 
 
 def sro_nigam(frequencies, accelerogram, dt, damping):
@@ -126,49 +128,94 @@ def sro_nigam(frequencies, accelerogram, dt, damping):
         "Pseudo_Acceleration": spectre_a
     }
 
-
 def affichage(temps, accel, resultats):
-    """Entrées : 
-        -   résulats de la méthode précédente
-        -   échelle des temps et entrée utilisées
+    """ 
+    Affiche les graphiques des différentes réponses et annote les maxima. 
+    Entrées : 
+        - temps : array
+            Vecteur temps pour le signal d'entrée
+        - accel : array
+            Accélérogramme (signal d'entrée)
+        - resultats : dict
+            Résultats de la méthode SRO NIGAM comprenant les spectres de déplacement,
+            pseudo-vitesse et pseudo-accélération
     """
-    plt.subplot(2,2,1)
-    plt.grid(True, which="both", ls="-")
-    plt.plot(temps, accel)
-    plt.xlabel("Temps (s)")
-    plt.ylabel('Accélération (m/s² ou g)')
-    plt.title('Perturbation en accélération')
     
-    plt.subplot(2,2,2)
-    plt.grid(True, which="both", ls="-")
-    plt.loglog(resultats['Frequences'], resultats['Deplacement'],color='purple', label='Amortissement 5%')
-    plt.xlabel("Fréquence de l'O.H (Hz)")
-    plt.ylabel('Déplacement (m)')
-    plt.title('Spectre de déplacement relatif')
-    plt.legend(loc='best')
-        
-    plt.subplot(2,2,3)
-    plt.grid(True, which="both", ls="-")
-    plt.loglog(resultats['Frequences'], resultats['Pseudo_Vitesse'],color='green', label='Amortissement 5%')
-    plt.xlabel("Fréquence de l'O.H (Hz)")
-    plt.ylabel('Pseudo-vitesse (m/s)')
-    plt.title('Spectre de pseudo-vitesse')
-    plt.legend(loc='best')
+    fig, axs = plt.subplots(2, 2, figsize=(12, 8))
+    print(resultats)
+    # --- Subplot 1: Accélération ---
+    axs[0, 0].grid(True, which="both", ls="-")
+    axs[0, 0].plot(temps, accel)
+    axs[0, 0].set_xlabel("Temps (s)")
+    axs[0, 0].set_ylabel("Accélération (m/s² ou g)")
+    axs[0, 0].set_title("Perturbation en accélération")
     
-    plt.subplot(2,2,4)
-    plt.grid(True, which="both", ls="-")
-    plt.loglog(resultats['Frequences'], resultats['Pseudo_Acceleration'],color='coral', label='Amortissement 5%')
-    plt.xlabel("Fréquence de l'O.H (Hz)")
-    plt.ylabel('Pseudo-accélération (m/s² ou g)')
-    plt.title('Spectre de pseudo-accélération')
-    plt.legend(loc='best')
+    # --- Subplot 2: Spectre de déplacement relatif ---
+    axs[0, 1].grid(True, which="both", ls="-")
+    axs[0, 1].loglog(resultats['Frequences'], resultats['Deplacement'], color='purple', label='Amortissement 5%')
+    axs[0, 1].set_xlabel("Fréquence de l'O.H (Hz)")
+    axs[0, 1].set_ylabel("Déplacement (m)")
+    axs[0, 1].set_title("Spectre de déplacement relatif")
+    axs[0, 1].legend(loc='best')
+    
+    # Repérer et annoter le maximum pour le déplacement
+    max_disp_idx = np.argmax(resultats['Deplacement'])
+    max_disp_val = resultats['Deplacement'][max_disp_idx]
+    max_disp_freq = resultats['Frequences'][max_disp_idx]
+    axs[0, 1].annotate(f'Max: {max_disp_val:.2e} m\nFreq: {max_disp_freq:.2f} Hz',
+                       xy=(max_disp_freq, max_disp_val),
+                       xytext=(-40, -90),
+                       textcoords='offset points',
+                       arrowprops=dict(facecolor='black', shrink=0.05),
+                       fontsize=10,
+                       bbox=dict(boxstyle="round",pad=0.3, edgecolor="black", facecolor="white", alpha=0.5))
+
+    # --- Subplot 3: Spectre de pseudo-vitesse ---
+    axs[1, 0].grid(True, which="both", ls="-")
+    axs[1, 0].loglog(resultats['Frequences'], resultats['Pseudo_Vitesse'], color='green', label='Amortissement 5%')
+    axs[1, 0].set_xlabel("Fréquence de l'O.H (Hz)")
+    axs[1, 0].set_ylabel("Pseudo-vitesse (m/s)")
+    axs[1, 0].set_title("Spectre de pseudo-vitesse")
+    axs[1, 0].legend(loc='best')
+    
+    # Repérer et annoter le maximum pour la vitesse
+    max_vel_idx = np.argmax(resultats['Pseudo_Vitesse'])
+    max_vel_val = resultats['Pseudo_Vitesse'][max_vel_idx]
+    max_vel_freq = resultats['Frequences'][max_vel_idx]
+    axs[1, 0].annotate(f'Max: {max_vel_val:.2e} m/s\nFreq: {max_vel_freq:.2f} Hz',
+                       xy=(max_vel_freq, max_vel_val),
+                       xytext=(-40, -90),
+                       textcoords='offset points',
+                       arrowprops=dict(facecolor='black', shrink=0.05),
+                       fontsize=10,
+                       bbox=dict(boxstyle="round",pad=0.3, edgecolor="black", facecolor="white", alpha=0.5))
+    
+    # --- Subplot 4: Spectre de pseudo-accélération ---
+    axs[1, 1].grid(True, which="both", ls="-")
+    axs[1, 1].loglog(resultats['Frequences'], resultats['Pseudo_Acceleration'], color='coral', label='Amortissement 5%')
+    axs[1, 1].set_xlabel("Fréquence de l'O.H (Hz)")
+    axs[1, 1].set_ylabel("Pseudo-accélération (m/s² ou g)")
+    axs[1, 1].set_title("Spectre de pseudo-accélération")
+    axs[1, 1].legend(loc='best')
+    
+    # Repérer et annoter le maximum pour l'accélération
+    max_acc_idx = np.argmax(resultats['Pseudo_Acceleration'])
+    max_acc_val = resultats['Pseudo_Acceleration'][max_acc_idx]
+    max_acc_freq = resultats['Frequences'][max_acc_idx]
+    axs[1, 1].annotate(f'Max: {max_acc_val:.2e} m/s²\nFreq: {max_acc_freq:.2f} Hz',
+                       xy=(max_acc_freq, max_acc_val),
+                       xytext=(-40,-90),
+                       textcoords='offset points',
+                       arrowprops=dict(facecolor='black', shrink=0.05),
+                       fontsize=10,
+                       bbox=dict(boxstyle="round", pad=0.3, edgecolor="black", facecolor="white", alpha=0.5))
     
     plt.tight_layout()
     plt.show()
     
     
 # --- Exemple d'utilisation ---
-
+"""
 if __name__ == "__main__":
 
     dt = 0.01
@@ -193,21 +240,53 @@ if __name__ == "__main__":
     affichage(temps, accel, resultats)
     
 
+"""
     
+
 # Lire le fichier Excel (feuille Calculs)
-df_calculs = pd.read_excel("Spectre.xlsm", sheet_name="Calculs", header=None)
-dt = df_calculs.iloc[10, 3] # Cellule D11 (index 0 donc ligne 10, col 3)
-amort = df_calculs.iloc[19, 3] # Cellule D20
+df_calculs = pd.read_excel("Spectre.xlsx", sheet_name="Calculs", header=None, engine="openpyxl")
+dt = df_calculs.iloc[10, 3]  # Cellule D11 (index 0 donc ligne 10, colonne 3)
+amort = df_calculs.iloc[19, 3]  # Cellule D20 (index 19, colonne 3)
 
 # Lire l'accélérogramme (feuille A)
-df_acc = pd.read_excel("Spectre.xlsm", sheet_name="A")
-accel_data = df_acc.iloc[2:, 1].values # Colonne 2
-temps = df_acc.iloc[2:, 0].values # Colonne 1, sans f=0
+df_acc = pd.read_excel("Spectre.xlsx", sheet_name="A", engine="openpyxl")
+accel_data = df_acc.iloc[2:, 1].values  # Colonne 2 (les données commencent à la ligne 3)
+temps = df_acc.iloc[2:, 0].values  # Colonne 1 (sans la ligne de titre)
 
-# Lancer le calcul
-res = sro_nigam(frequencies, accel_data, dt, amort)
+print(dt, amort, df_acc)
+# Lancer le calcul (fonction supposée existante)
+res = sro_nigam(frequencies, accel_data, dt, amort)  # Résultat attendu sous la forme d'une liste ou d'un tableau
 
+# Affichage des données (si nécessaire pour vérification)
 affichage(temps, accel_data, res)
 
-# Sauvegarder
-pd.DataFrame(res).to_excel("Spectre.xlsm", sheet_name="RES")
+# Charger le fichier existant avec openpyxl pour modification sans écrasement
+
+try:
+    # Charger le fichier Excel
+    wb = load_workbook("Spectre.xlsx")
+    
+    # Créer/Réinitialiser la feuille "RES"
+    if "RES" in wb.sheetnames:
+        ws = wb["RES"]
+        ws.delete_rows(1, ws.max_row)  # Vider les anciennes données
+    else:
+        ws = wb.create_sheet(title="RES")
+    
+    # Ajouter les en-têtes
+    headers = ["Fréq. propres", "Déplacement rel.", "Ps. Vitesse", "Ps. Accélération"]
+    for col_idx, header in enumerate(headers, start=1):
+        ws.cell(row=1, column=col_idx, value=header)
+    
+    # Ajouter les données
+    for row_idx, row in enumerate(res.values(), start=1):  # Commence à la ligne 2
+        for col_idx, value in enumerate(row, start=2):
+            ws.cell(row=col_idx, column=row_idx, value=value)   #avoir 4 colonnes (feuille RES) à partir de 4 lignes (dict res)
+    
+    # Sauvegarder les modifications
+    wb.save("Spectre.xlsx")
+    wb.close() 
+   
+     
+except Exception as e:
+    print(f"Une erreur s'est produite : {e}")

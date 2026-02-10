@@ -16,7 +16,7 @@ recherche, etc.) et de visualiser immédiatement :
 PRÉ-REQUIS TECHNIQUES
 ------------------------
 - Avoir Python installé (version 3.x recommandée).
-- Avoir les bibliothèques Python suivantes installées :<sub style="background-color: var(--mud-palette-primary);">1</sub>
+- Avoir les bibliothèques Python suivantes installées :
   - numpy
   - pandas
   - matplotlib
@@ -336,3 +336,4 @@ try:
      
 except Exception as e:
     print(f"Une erreur s'est produite : {e}")
+

@@ -17,7 +17,7 @@ Les résultats sont :
 PRÉ-REQUIS TECHNIQUES
 ------------------------
 - Avoir Python installé (version 3.x recommandée).
-- Avoir les bibliothèques Python suivantes installées :<sub style="background-color: var(--mud-palette-primary);">1</sub>
+- Avoir les bibliothèques Python suivantes installées :
   - numpy
   - pandas
   - matplotlib

@@ -1,16 +1,59 @@
 #%%
-"""Ce fichier .py est la traduction en Python de la macro VBA 
+"""FONCTION DU SCRIPT
+-----------------------
+Ce fichier .py est la traduction en Python de la macro VBA 
 utilisée dans le fichier Excel fourni en exemple pour effectuer l'opération de filtrage
 du spectre (en fréquence) sismique.
 
-Auteur : Laura Brémont (stagiaire)
-Dernière version : 26/01/26
+Le script inclut une routine d’affichage interactif qui permet de tester
+rapidement plusieurs combinaisons de paramètres (sensibilité, zone de
+recherche, etc.) et de visualiser immédiatement :
+    - l’enveloppe finale filtrée (retirant les plateaux, zones
+    linéaires, etc.),
+    - le nombre de points conservés par l’opération de filtrage.
+
+
+PRÉ-REQUIS TECHNIQUES
+------------------------
+- Avoir Python installé (version 3.x recommandée).
+- Avoir les bibliothèques Python suivantes installées :<sub style="background-color: var(--mud-palette-primary);">1</sub>
+  - numpy
+  - pandas
+  - matplotlib
+  - openpyxl
+  - Un éditeur de code avec shell intégré. Je conseille VS Code, qui propose une fenêtre
+  interactive plus ergonomique (clic droit sur le script->"Run current file in interactive window")
+
+COMMENT PRÉPARER LE FICHIER D’ENTRÉE EXCEL (nom par défaut : "IN_Test.xlsx") :
+-------------------------
+Le fichier doit se trouver dans le même dossier que ce script et contenir au minimum une feuille nommée "A" :
+   - La colonne 1 (A) contient les fréquences (en Hz), à partir de la ligne 3.
+   - La colonne 2 (B) contient les valeurs d’accélération correspondantes (en m/s² ou en g) ,
+     également à partir de la ligne 3.
+   - Les lignes 1 et 2 peuvent contenir des titres ou être laissées vides.
+
+Auteur : Laura Brémont - Stagiaire service Calculs NFM Systems (jan-fev 2026)
+Dernière version : 10/02/26
 """
 
-import pandas as ps
+"""-------------------------------Partie à compléter------------------------------------"""
+
+nom_fichier_xlsx = "IN_Test.xlsx" #doit se trouver dans le même répertoire que ce script (xls(x) acceptés)
+
+#/!\ Assurez-vous que le fichier n'est pas ouvert avant de lancer le script
+
+"""-------------------------------------------------------------------------------------"""
+
+
+import pandas as pd
+from openpyxl import load_workbook
+# Pour conserver les macros, utiliser openpyxl ou xlwings 
+# uniquement, sans pandas pour écrire les données directement
 import numpy as np
 import matplotlib.pyplot as plt
-import xlwt
+from matplotlib import rcParams
+rcParams['font.family'] = 'serif'
+rcParams['font.size'] = 14
 
 
 ###     Définitions utiles
@@ -23,7 +66,6 @@ PLATEAU_taille = 'Taille de la zone de recherche des plateaux'
 Sigma_X = "Sensibilité de sélection des plateaux"   
 Sigma_D_X = "Sensibilité de sélection des zones linéaires"
 
-PATH = 'C:/stage/Tâche filtrage/test_simple2.xlsm'
 nom_X = 'X'
 unite_X = 'm/s^2'
 
@@ -51,23 +93,16 @@ valeurs = {Nb_passe : [1,2,3,4,5,6],                                # on fera 20
                 Sigma_D_X : [2,2.5,3,3.5,4,4.5]}
 
 
-def Run_Enveloppe(PATH, L_Start, choix):
+def Run_Enveloppe(nom_fichier_xlsx , L_Start, choix):
     ###     Import des donées via pandas 
     """ajouter qqch pour choisir la table"""
-    WS_Spectres = ps.read_excel(PATH, usecols="A,B,D,E")
-
-
-
+    WS_Spectres = pd.read_excel(nom_fichier_xlsx, usecols="A,B,D,E")
     
     FREQ1= WS_Spectres[WS_Spectres.columns[0]]
     X1= WS_Spectres[WS_Spectres.columns[1]]
     FREQ = FREQ1.values
     X = X1.values
-    #print(FREQ)
-    #print(FREQ.shape)
-    #print(X)
-    #print(X.shape)
-    
+
     RES_FREQ = np.log(WS_Spectres[WS_Spectres.columns[2]])
     RES_X = WS_Spectres[WS_Spectres.columns[3]]
     
@@ -128,7 +163,7 @@ def Run_Enveloppe(PATH, L_Start, choix):
                         compt -= 1
                     f += 1
                     
-            #print(V0[N])
+            
         """-----------------------------DETECTION PARTIE LINEAIRE-----------------------------------"""
         ## Vérification de la présence d'une partie linéaire
         
@@ -139,7 +174,6 @@ def Run_Enveloppe(PATH, L_Start, choix):
             
             moy_D = 0
             sigma_D = 0
-            #print("hello linéaire")
             
             marker_D = np.array([0]*NB_val) #pour stoker les abscisses des points du plateau
             curs_D = j    #curseur de recherche des PLATEAU_taille prochains éléments "encore en jeu"
@@ -154,12 +188,9 @@ def Run_Enveloppe(PATH, L_Start, choix):
             marker_D[curs_D] = 1
                                     
             sigma_D = np.sum(((X - moy_D)*marker_D)**2)
-            #print("sigma_D = %.2f"%sigma_D)
-            
+
             if (sigma_D/choix[LINEAIRE_taille])**0.5 < choix[Sigma_D_X] and sum(marker_D) >= 3:   #les données sont suffisement linéaires pour être redondantes
                 #print("Linéarité détectée à f = {}".format(j))
-                #print(V0[N])
-                #print(marker_D)
                 
                 #mettre les données intermédiaires à 0 dans le tableau V0
                 g = j + 1
@@ -207,7 +238,7 @@ def Display_Choices(PARAMETRE, choix):
     plt.figure()
     for n in range(6):
         choix[PARAMETRE] = valeurs[PARAMETRE][n]
-        FREQ, X, RES_FREQ, RES_X, nb_pts_restants = Run_Enveloppe(PATH, L_Start, choix)
+        FREQ, X, RES_FREQ, RES_X, nb_pts_restants = Run_Enveloppe(nom_fichier_xlsx, L_Start, choix)
         
         plt.scatter(RES_FREQ, RES_X, color=couleur[n], marker='o', s=3.2**(6-n), label='{} -> {} pts'.format(valeurs[PARAMETRE][n], nb_pts_restants))
         
@@ -233,12 +264,14 @@ def main():
         
         choix[PARAMETRE] = Display_Choices(PARAMETRE, choix)
         
-    FREQ, X, RES_FREQ, RES_X, nb_points = Run_Enveloppe(PATH, L_Start, choix)
+    FREQ, X, RES_FREQ, RES_X, nb_points = Run_Enveloppe(nom_fichier_xlsx, L_Start, choix)
     
-    plt.title("Tracé de l'enveloppe avec les paramètres retenus")
+    print("Pensez à fermer toutes les fenêtres pour déclancher l'écriture des résultats.")
+    
     
     #Affichage comparatif final
     
+    plt.title("Tracé de l'enveloppe avec les paramètres retenus")
     plt.plot(FREQ, X, color='orange', label='Données client')
     print("Données client affichées")
     plt.plot(RES_FREQ, RES_X, color='indigo', linestyle = '--', label='Données filtrées : {} pts'.format(nb_points))
@@ -248,11 +281,58 @@ def main():
     plt.ylabel('{} ({})'.format(nom_X, unite_X))
     plt.legend(loc='best')
     plt.show()
-
-    ### Ecrire dans l'Excel de sortie
+    
+    
+    
+    """A supprimer 
+    df = pd.DataFrame({'RES FREQ':RES_FREQ[1:], 'RES X':RES_X[1:]})
+    writer = pd.ExcelWriter(PATH, engine='xlsxwriter') 
+    pd.DataFrame.to_excel(writer, float_format="%.2f", header=["RES FREQ","RES X"], startcol=3, engine='xlsxwriter')
     """
-    df = ps.DataFrame({'RES FREQ':RES_FREQ[1:], 'RES X':RES_X[1:]})
-    writer = ps.ExcelWriter(PATH, engine='xlsxwriter') 
-    ps.DataFrame.to_excel(writer, float_format="%.2f", header=["RES FREQ","RES X"], startcol=3, engine='xlsxwriter')
-"""
-main()
+    return {'FREQ RES': RES_FREQ[1:], 
+            'X RES' : RES_X[1:]}
+    
+  
+        
+"""------------------Gestion de l'affichage et de l'import/export des données--------------------""" 
+ 
+    
+df_acc = pd.read_excel(nom_fichier_xlsx, sheet_name="A", engine="openpyxl")
+accel_data = df_acc.iloc[2:, 1].values  # Colonne 2 (les données commencent à la ligne 3)
+freq = df_acc.iloc[2:, 0].values  # Colonne 1 (sans la ligne de titre)
+
+# Lancer le calcul (fonction supposée existante)
+res = main()  # Résultat attendu sous la forme d'une liste ou d'un tableau
+
+
+# Charger le fichier existant avec openpyxl pour modification sans écrasement
+
+try:
+    # Charger le fichier Excel
+    wb = load_workbook(nom_fichier_xlsx)
+    
+    # Créer/Réinitialiser la feuille "RES"
+    if "RES" in wb.sheetnames:
+        ws = wb["RES"]
+        ws.delete_rows(1, ws.max_row)  # Vider les anciennes données
+    else:
+        ws = wb.create_sheet(title="RES")
+    
+    # Ajouter les en-têtes
+    headers=["RES FREQ","RES X"]
+    for col_idx, header in enumerate(headers, start=1):
+        ws.cell(row=1, column=col_idx, value=header)
+    
+    # Ajouter les données
+    for row_idx, row in enumerate(res.values(), start=1):  # Commence à la ligne 2
+        for col_idx, value in enumerate(row, start=2):
+            ws.cell(row=col_idx, column=row_idx, value=value)   #avoir 2 colonnes (feuille RES) à partir de 2 lignes (dict res)
+    
+    # Sauvegarder les modifications
+    wb.save(nom_fichier_xlsx)
+    wb.close() 
+    print("Résultats écrits avec succès ! Vous pourvez ouvrir {}".format(nom_fichier_xlsx))
+   
+     
+except Exception as e:
+    print(f"Une erreur s'est produite : {e}")

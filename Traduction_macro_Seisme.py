@@ -318,7 +318,7 @@ print(dt, amort, df_acc)
 # Lancer le calcul (fonction supposée existante)
 res = sro_nigam(frequencies, accel_data, dt, amort)  # Résultat attendu sous la forme d'une liste ou d'un tableau
 
-print("Pensez à fermer toutes les fenêtres pour déclancher l'écriture des résultats.")
+print("Pensez à fermer toutes les fenêtres pour déclencher l'écriture des résultats.")
 
 # Affichage des données (si nécessaire pour vérification)
 affichage(temps, accel_data, res)
@@ -349,7 +349,7 @@ try:
     # Sauvegarder les modifications
     wb.save(nom_fichier_xlsx)
     wb.close() 
-    print("Résultats écrits avec succès ! Vous pourvez ouvrir {}".format(nom_fichier_xlsx))
+    print("Résultats écrits avec succès ! Vous pouvez ouvrir {}".format(nom_fichier_xlsx))
      
 except Exception as e:
     print(f"Une erreur s'est produite : {e}")

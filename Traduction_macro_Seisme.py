@@ -1,10 +1,66 @@
-"""Composition du programme :
--   Fonction sro_nigam
+"""
+FONCTION DU PROGRAMME :
+-----------------------
+Ce programme lit un fichier Excel contenant un accélérogramme (évolution d’une
+accélération en fonction du temps) et calcule, à partir de ce signal, le Spectre de
+Réponse d’Oscillateur (SRO) selon la méthode de Nigam & Jennings. Il produit :
+
+- le spectre de déplacement relatif,
+- le spectre de pseudo‑vitesse,
+- le spectre de pseudo‑accélération
+
+Les résultats sont :
+1) affichés sous forme de graphiques (accélération + 3 spectres),
+2) enregistrés dans une nouvelle feuille Excel nommée "RES" dans le même fichier.
+
+
+PRÉ-REQUIS TECHNIQUES
+------------------------
+- Avoir Python installé (version 3.x recommandée).
+- Avoir les bibliothèques Python suivantes installées :<sub style="background-color: var(--mud-palette-primary);">1</sub>
+  - numpy
+  - pandas
+  - matplotlib
+  - openpyxl
+  - Un éditeur de code avec shell intégré. Je conseille VS Code, qui propose une fenêtre
+  interactive plus ergonomique (clic droit sur le script->"Run current file in interactive window")
+
+------------------------------------------------------------------
+COMMENT PRÉPARER LE FICHIER D’ENTRÉE EXCEL (nom par défaut : "IN_Spectre.xlsx") :
+
+Le fichier doit se trouver dans le même dossier que ce script et contenir au minimum :
+
+1) Feuille "Calculs" (IMPORTANT : les cases doivent contenir des valeurs, non des formules)
+
+   - La cellule D11 (ligne 11, colonne D) doit contenir le pas de temps du signal (dt, en secondes).
+   - La cellule D20 (ligne 20, colonne D) doit contenir l’amortissement réduit ξ (par ex. 0,05 pour 5 %).
+
+    Ces choix sont basés sur le spectre d'essais, et personnalisables (L.295)
+
+2) Feuille "A"
+   - La colonne A contient le temps (en secondes), à partir de la ligne 3.
+   - La colonne B contient les valeurs d’accélération correspondantes (en m/s² ou en g),
+     également à partir de la ligne 3.
+   - Les lignes 1 et 2 peuvent contenir des titres ou être laissées vides.
+
+3) Renommez une éventuelle feuille nommée "RES", car le script créera une feuille à ce nom
+
+Composition du programme :
+-   Fonction sro_nigam traduite de la macro xlsm de Jo-Simon
 -   Partie lecture d'Excel, appel, et écriture des résultats
 
-Auteur : Laura Brémont
-Dernière version : 29/01/26
+Auteur : Laura Brémont - Stagiaire service Calculs NFM Systems (jan-fev 2026)
+Dernière version : 10/02/26
 """
+
+
+"""-------------------------------Partie à compléter------------------------------------"""
+
+nom_fichier_xlsx = "IN_Spectre.xlsx" #doit se trouver dans le même répertoire que ce script (xls(x) acceptés)
+
+#/!\ Assurez-vous que le fichier n'est pas ouvert avant de lancer le script
+
+"""-------------------------------------------------------------------------------------"""
 
 import pandas as pd
 from openpyxl import load_workbook
@@ -142,7 +198,7 @@ def affichage(temps, accel, resultats):
     """
     
     fig, axs = plt.subplots(2, 2, figsize=(12, 8))
-    print(resultats)
+    
     # --- Subplot 1: Accélération ---
     axs[0, 0].grid(True, which="both", ls="-")
     axs[0, 0].plot(temps, accel)
@@ -214,7 +270,7 @@ def affichage(temps, accel, resultats):
     plt.show()
     
     
-# --- Exemple d'utilisation ---
+# --- Exemple d'utilisation : pas de fichier d'entrée nécessaire, mais commentez la fin du programme (L.290+)---
 """
 if __name__ == "__main__":
 
@@ -244,18 +300,25 @@ if __name__ == "__main__":
     
 
 # Lire le fichier Excel (feuille Calculs)
-df_calculs = pd.read_excel("Spectre.xlsx", sheet_name="Calculs", header=None, engine="openpyxl")
+df_calculs = pd.read_excel(nom_fichier_xlsx, sheet_name="Calculs", header=None, engine="openpyxl")
+
+"""-----------------------------Zone personnalisable (feuille Calculs)-----------------------------------"""
+
 dt = df_calculs.iloc[10, 3]  # Cellule D11 (index 0 donc ligne 10, colonne 3)
 amort = df_calculs.iloc[19, 3]  # Cellule D20 (index 19, colonne 3)
 
+"""------------------------------------------------------------------------------------------------------"""
+
 # Lire l'accélérogramme (feuille A)
-df_acc = pd.read_excel("Spectre.xlsx", sheet_name="A", engine="openpyxl")
+df_acc = pd.read_excel(nom_fichier_xlsx, sheet_name="A", engine="openpyxl")
 accel_data = df_acc.iloc[2:, 1].values  # Colonne 2 (les données commencent à la ligne 3)
 temps = df_acc.iloc[2:, 0].values  # Colonne 1 (sans la ligne de titre)
 
 print(dt, amort, df_acc)
 # Lancer le calcul (fonction supposée existante)
 res = sro_nigam(frequencies, accel_data, dt, amort)  # Résultat attendu sous la forme d'une liste ou d'un tableau
+
+print("Pensez à fermer toutes les fenêtres pour déclancher l'écriture des résultats.")
 
 # Affichage des données (si nécessaire pour vérification)
 affichage(temps, accel_data, res)
@@ -264,7 +327,7 @@ affichage(temps, accel_data, res)
 
 try:
     # Charger le fichier Excel
-    wb = load_workbook("Spectre.xlsx")
+    wb = load_workbook(nom_fichier_xlsx)
     
     # Créer/Réinitialiser la feuille "RES"
     if "RES" in wb.sheetnames:
@@ -284,9 +347,9 @@ try:
             ws.cell(row=col_idx, column=row_idx, value=value)   #avoir 4 colonnes (feuille RES) à partir de 4 lignes (dict res)
     
     # Sauvegarder les modifications
-    wb.save("Spectre.xlsx")
+    wb.save(nom_fichier_xlsx)
     wb.close() 
-   
+    print("Résultats écrits avec succès ! Vous pourvez ouvrir {}".format(nom_fichier_xlsx))
      
 except Exception as e:
     print(f"Une erreur s'est produite : {e}")

@@ -90,7 +90,7 @@ valeurs = {Nb_passe : [1,2,3,4,5,6],                                # on fera 20
                 LINEAIRE_taille : [3,4,5,6,7,8],                    # plage de recherche des parties linéaires
                 PLATEAU_taille : [3,4,5,6,7,8],                     # plage de recherche des plateaux
                 Sigma_X : [0.001, 0.005, 0.01, 0.02, 0.03, 0.04],   # sensibilité de détection des plateaux
-                Sigma_D_X : [2,2.5,3,3.5,4,4.5]}
+                Sigma_D_X : [0.5, 1, 2,2.5,3,3.5]}                  # sensibilité de détection des parties cvx
 
 
 def Run_Enveloppe(nom_fichier_xlsx , L_Start, choix):
@@ -118,7 +118,7 @@ def Run_Enveloppe(nom_fichier_xlsx , L_Start, choix):
         - tracer un diagremmes en barres (histogramme ou spectre de raies)
     """
     V0 = np.ones([1 + int(choix[Nb_passe]), NB_val])  
-    #print(V0.shape)
+
     for N in range(1, int(choix[Nb_passe]) + 1):    # Début de l'étape de sélection n°N
         
         #print("----------ETAPE %d----------"%N)
@@ -131,7 +131,6 @@ def Run_Enveloppe(nom_fichier_xlsx , L_Start, choix):
         for j in range(NB_val - int(choix[PLATEAU_taille])):
             moy = 0
             sigma = 0
-            #print("hello plateau")
             
             marker = np.array([0]*NB_val) #pour stoker les abscisses des points du plateau
             curs = j    #curseur de recherche des PLATEAU_taille prochains éléments "encore en jeu"
@@ -147,12 +146,9 @@ def Run_Enveloppe(nom_fichier_xlsx , L_Start, choix):
             marker[curs] = 1
                                     
             sigma = np.sum(((X - moy)*marker)**2)
-            #print("sigma = %.2f"%sigma)
             
             if (sigma/choix[PLATEAU_taille])**0.5 < choix[Sigma_X] and sum(marker) >= 3:   #les données sont suffisement proches pour être redondantes
                 #print("Plateau détecté à f = {}".format(j))
-                #print(V0[N])
-                #print(marker)
                 
                 #mettre les données intermédiaires à 0 dans le tableau V0
                 f = j + 1
@@ -257,7 +253,6 @@ def Display_Choices(PARAMETRE, choix):
     
     
 def main():
-    plt.figure()
     choix = defaut  #vont être mis à jour au fur et à mesure de l'affinement du filtre
     
     for PARAMETRE in parametres.keys():
@@ -266,7 +261,7 @@ def main():
         
     FREQ, X, RES_FREQ, RES_X, nb_points = Run_Enveloppe(nom_fichier_xlsx, L_Start, choix)
     
-    print("Pensez à fermer toutes les fenêtres pour déclancher l'écriture des résultats.")
+    print("Pensez à fermer toutes les fenêtres pour déclencher l'écriture des résultats.")
     
     
     #Affichage comparatif final
@@ -282,13 +277,7 @@ def main():
     plt.legend(loc='best')
     plt.show()
     
-    
-    
-    """A supprimer 
-    df = pd.DataFrame({'RES FREQ':RES_FREQ[1:], 'RES X':RES_X[1:]})
-    writer = pd.ExcelWriter(PATH, engine='xlsxwriter') 
-    pd.DataFrame.to_excel(writer, float_format="%.2f", header=["RES FREQ","RES X"], startcol=3, engine='xlsxwriter')
-    """
+
     return {'FREQ RES': RES_FREQ[1:], 
             'X RES' : RES_X[1:]}
     
@@ -331,9 +320,8 @@ try:
     # Sauvegarder les modifications
     wb.save(nom_fichier_xlsx)
     wb.close() 
-    print("Résultats écrits avec succès ! Vous pourvez ouvrir {}".format(nom_fichier_xlsx))
+    print("Résultats écrits avec succès ! Vous pouvez ouvrir {}".format(nom_fichier_xlsx))
    
      
 except Exception as e:
     print(f"Une erreur s'est produite : {e}")
-

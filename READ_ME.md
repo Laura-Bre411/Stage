@@ -1,1 +1,3 @@
-État d'avancement : tout est focntionnel, la seule difficulté (récurrente) est l'exportation vers une feuille vide du fichier Excel source ("Permission Denied")
+État d'avancement : Les traductions de macros sont uniformiées, commentées et fonctionnelles.
+
+La méthode par FFT n'est pas cohérente, à voir si j'ai le tmp de la corriger.
